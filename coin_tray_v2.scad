@@ -58,6 +58,11 @@ wall_thickness      = 2.4;  // perimeter walls below the lip
 base_thickness      = 3.0;  // minimum floor under the deepest cradle
 divider_thickness   = 2.4;  // minimum deck web between neighbouring lanes
 deck_height         = 18;   // Z of the flat coin deck (cradles are cut into it)
+// Highest usable deck_height (no coin rises above the rim):
+//   deck_height_max = tray_height - (coin_exposure * largest d - coin_clearance / 2)
+//                   = 45 - (0.5 * 25.75 - 0.25) = 32.375 mm with the defaults (2 euro).
+//   It is echoed as REPORT deck_height_max and enforced by an assert.  Above
+//   ~20 mm the back coins start to cover the back-wall labels; raise label_z too.
 corner_radius       = 6;    // plan-view radius of the outer (lip) corners
 inner_corner_radius = 5;    // plan-view radius of the open well corners
 well_fillet         = 3;    // cove radius where the deck meets the walls
@@ -200,6 +205,7 @@ function pockets(l) = [
 ];
 
 max_cdepth = max([for (c = [0 : len(COINS) - 1]) cdepth(c)]);
+deck_height_max = tray_height - max([for (c = COINS) coin_exposure * c[1]]) + coin_clearance / 2;
 
 // Half width of a cradle at height z
 function cradle_hw(c, z) = z <= zbot(c) ? 0 : z >= zc(c) ? R(c) : sqrt(R(c) ^ 2 - (zc(c) - z) ^ 2);
@@ -229,6 +235,7 @@ hook_wall_right = (lane_x(n_left) - W[n_left] / 2 + R(c_jr) - cradle_hw(c_jr, ho
 // =====================================================================
 //  Sanity checks
 // =====================================================================
+assert(deck_height <= deck_height_max + 1e-9, "coins would rise above the rim");
 assert(deck_height - max_cdepth >= base_thickness,
        "deck_height too low for base_thickness under the deepest cradle");
 assert(hook_wall_left  >= wall_thickness, "hook pocket too close to the 50c cradle");
@@ -369,10 +376,12 @@ module count_marks() {
         c  = s[0];
         x1 = count_x1(l);
         for (k = [0 : n_groups(c, s[2]) - 1]) {
-            ye = block_y0(c, s[1], s[2]) + (k + 1) * plen(c);   // end of this 5-stack
-            translate([x1 - count_tick_length, ye - count_line_width / 2, deck_height - 0.01])
+            // back face of the 5th coin (coins packed to the front of the pocket);
+            // the tick ends exactly there and sits entirely beside its own stack
+            ye = block_y0(c, s[1], s[2]) + k * plen(c) + group_size * c_t(c);
+            translate([x1 - count_tick_length, ye - count_line_width, deck_height - 0.01])
                 cube([count_tick_length, count_line_width, count_emboss + 0.01]);
-            translate([x1 - count_tick_length / 2, ye - count_line_width / 2 - count_text_gap,
+            translate([x1 - count_tick_length / 2, ye - count_line_width - count_text_gap,
                        deck_height - 0.01])
                 linear_extrude(count_emboss + 0.01)
                     text(str(group_size * (k + 1)), size = count_size, font = label_font,
@@ -484,7 +493,7 @@ COIN_COLORS = ["silver", "gold", "goldenrod", "goldenrod", "goldenrod",
 module coins(lift = 0.05) {
     for (l = [0 : n_lanes - 1]) for (p = pockets(l)) {
         c   = p[0];
-        gap = (plen(c) - group_size * c_t(c)) / (group_size + 1);
+        gap = 0.02;   // coins packed to the front of the pocket, as they rest
         for (j = [0 : group_size - 1])
             color(COIN_COLORS[c])
             translate([lane_x(l) + p[2], p[1] + gap + j * (c_t(c) + gap),
@@ -497,7 +506,8 @@ module coins(lift = 0.05) {
 //  Report
 // =====================================================================
 module report() {
-    echo(str("REPORT deck_height=", deck_height, " gap_left=", gap_left,
+    echo(str("REPORT deck_height=", deck_height, " deck_height_max=", deck_height_max,
+             " gap_left=", gap_left,
              " gap_right=", gap_right, " jw_left=", jw_left, " jw_right=", jw_right,
              " lane_avail=", lane_avail));
     echo(str("REPORT joint hooks=", HOOKS, " slide=", hook_slide,
