@@ -42,7 +42,7 @@
 /* [Render selection] */
 // assembled | left | right | left_print | right_print | exploded | coins
 // | assembled_coins | fit_check | overlap_check | clearance_check_in
-// | clearance_check_out | path_check
+// | clearance_check_out | path_check | coins_partial
 part = "assembled";
 
 /* [Finished overall dimensions] */
@@ -66,7 +66,8 @@ deck_height         = 18;   // Z of the flat coin deck (cradles are cut into it)
 corner_radius       = 6;    // plan-view radius of the outer (lip) corners
 inner_corner_radius = 5;    // plan-view radius of the open well corners
 well_fillet         = 3;    // cove radius where the deck meets the walls
-pocket_chamfer      = 1.2;  // 45 deg chamfer where pockets meet the deck
+pocket_chamfer      = 1.2;  // 45 deg chamfer where pockets meet the deck (lane sides)
+pocket_end_chamfer  = 0.4;  // smaller chamfer at pocket ends / zig-zag steps, leaves flat deck for the counts
 rim_chamfer         = 0.8;  // inner top edge of the rim
 lip_edge_chamfer    = 0.5;  // outer top edge of the lip
 bottom_chamfer      = 0.6;  // bottom edges (elephant foot relief)
@@ -100,12 +101,13 @@ HOOKS = [[12, 0], [40, 1], [62, 0], [92, 1]];
 
 /* [Group counts] */
 show_counts       = true;
-count_size        = 4.5;   // text size of the running counts (~3.2 mm digits)
+count_size        = 3.2;   // text size of the counts: digits ~1.0 x size tall, two digits ~1.5 x size wide
 count_emboss      = 0.6;   // height of counts and ticks above the deck
-count_tick_length = 5.0;   // length of the tick line above each count
+count_tick_length = 5.0;   // length of the tick line above each count (a bit wider than "50")
 count_line_width  = 0.8;   // tick width (2 extrusion lines)
 count_text_gap    = 0.6;   // gap between tick and count
-count_margin      = 0.3;   // clearance between tick and the pocket chamfer
+count_offset      = 2.0;   // gap from a stack's left edge to the right end of its tick;
+                           // counts follow the zig-zag of their own stacks
 
 /* [Labels] */
 show_labels = true;
@@ -183,7 +185,8 @@ function lane_x(l) = l < n_left
       + (sumv(W, l) - sumv(W, n_left)) + W[l] / 2;
 
 // Right end of the count ticks of lane l (they run leftwards from here)
-function count_x1(l) = lane_x(l) - W[l] / 2 - pocket_chamfer - count_margin;
+function count_x1(l, c, k) =   // right end of the tick of pocket k (coin c) in lane l
+    lane_x(l) + (k % 2 == 0 ? -1 : 1) * stag(c) / 2 - R(c) - count_offset;
 
 // Sections of a lane: [coin, y start, available length]
 function sections(l) = len(LANES[l]) == 1
@@ -246,9 +249,18 @@ function hook_y_max(h) = h[0] + max([for (r = hook_swept(h[1])) r[3]]) + joint_c
 assert(min([for (h = HOOKS) hook_y_min(h)]) >= lip_width + wall_thickness, "hook too close to the front");
 assert(max([for (h = HOOKS) hook_y_max(h)]) <= tray_depth - lip_width - wall_thickness, "hook too close to the back");
 assert(gap_left  >= divider_thickness + 2 * pocket_chamfer, "left lanes too crowded");
-assert(count_tick_length + count_margin + 2 * pocket_chamfer + 0.5 <= gap_right,
+// counts of left-shifted stacks sit in the gutter: clear of the neighbour lane
+count_w = max(count_tick_length, 1.5 * count_size);   // widest count ("45") incl. tick
+assert(count_offset + count_w + pocket_chamfer + 0.3 <= gap_right + 1e-9,
        "count gutter too narrow on the right half");
-assert(count_x1(n_left) - count_tick_length >= joint_x + seam_gap / 2 + 0.5,
+// counts of right-shifted stacks sit in the zig-zag notch: clear of their own
+// stack's side chamfer and of the next pocket's (small) end chamfer
+assert(count_offset >= pocket_chamfer + 0.3, "count_offset too small");
+assert(pocket_end_chamfer + 0.3 <= stack_clearance, "end chamfer would reach the ticks");
+assert(min([for (c = COINS) group_size * c[2]])
+       >= count_line_width + count_text_gap + 1.0 * count_size + pocket_end_chamfer + 0.3,
+       "counts do not fit beside the thinnest stack");
+assert(lane_x(n_left) - W[n_left] / 2 - count_offset - count_w >= joint_x + seam_gap / 2 + 0.5,
        "counts of the first right-hand lane would cross the split");
 assert(gap_right >= divider_thickness + 2 * pocket_chamfer, "right lanes too crowded");
 assert(stack_clearance < min([for (c = COINS) c[2]]),
@@ -321,8 +333,17 @@ module pocket_profile(c) {   // X-Z cross-section: round cradle + open top
 
 module pocket(l, p) {
     c = p[0];
-    translate([lane_x(l) + p[2], p[1] + plen(c), 0])
-        rotate([90, 0, 0]) linear_extrude(plen(c)) pocket_profile(c);
+    e = 0.01;   // overlap neighbouring pockets so no two faces coincide (clean F5 preview)
+    translate([lane_x(l) + p[2], p[1] + plen(c) + e, 0])
+        rotate([90, 0, 0]) linear_extrude(plen(c) + 2 * e) pocket_profile(c);
+}
+
+// Lane footprint grown by gx along the sides and gy at pocket ends (chamfer steps)
+module lane_outline_grown(l, gx, gy) {
+    offset(r = 0.2) offset(delta = -0.2)
+        for (p = pockets(l))
+            translate([lane_x(l) + p[2] - R(p[0]) - gx, p[1] - gy])
+                square([2 * R(p[0]) + 2 * gx, plen(p[0]) + 2 * gy]);
 }
 
 module lane_outline(l) {     // zig-zag footprint of a lane at deck level
@@ -338,7 +359,7 @@ module lane_cutter(l) {
         slab(deck_height - pocket_chamfer * (1 - (i - 1) / steps),
              pocket_chamfer * (1 - (i - 1) / steps) + well_fillet + 1)
             intersection() {
-                offset(r = pocket_chamfer * i / steps) lane_outline(l);
+                lane_outline_grown(l, pocket_chamfer * i / steps, pocket_end_chamfer * i / steps);
                 well_outline(0);
             }
 }
@@ -356,11 +377,20 @@ module label_text(s) {
     text(s, size = label_size, font = label_font, halign = "center", valign = "center");
 }
 
+// Deboss into a vertical wall with 45 deg stepped tops, so the glyph recesses
+// support themselves when printed (no flat 0.6 mm ceilings)
+module wall_deboss(depth, steps = 4) {
+    for (k = [0 : steps - 1])
+        translate([0, depth - k * depth / steps, 0]) rotate([90, 0, 0])
+            linear_extrude(depth / steps + (k == 0 ? 0.01 : 0) + 0.001)
+                offset(delta = -k * depth / steps) children();
+}
+
 module labels() {
     // on the inside of the back wall, above each lane, facing the cashier
     for (l = [0 : n_lanes - 1])
-        translate([lane_x(l), well_y1 + label_depth, label_z])
-            rotate([90, 0, 0]) linear_extrude(label_depth + 0.01) label_text(COINS[LANES[l][0]][0]);
+        translate([lane_x(l), well_y1, label_z])
+            wall_deboss(label_depth) label_text(COINS[LANES[l][0]][0]);
     // front section of the shared lane: on the deck separator, right behind it
     for (l = [0 : n_lanes - 1]) if (len(LANES[l]) > 1)
         translate([lane_x(l), sep_center_y(l), deck_height - label_depth])
@@ -374,8 +404,8 @@ module labels() {
 module count_marks() {
     for (l = [0 : n_lanes - 1]) for (s = sections(l)) {
         c  = s[0];
-        x1 = count_x1(l);
         for (k = [0 : n_groups(c, s[2]) - 1]) {
+            x1 = count_x1(l, c, k);   // zig-zags with the stacks
             // back face of the 5th coin (coins packed to the front of the pocket);
             // the tick ends exactly there and sits entirely beside its own stack
             ye = block_y0(c, s[1], s[2]) + k * plen(c) + group_size * c_t(c);
@@ -490,16 +520,19 @@ module right_half() {
 COIN_COLORS = ["silver", "gold", "goldenrod", "goldenrod", "goldenrod",
                "chocolate", "chocolate", "chocolate"];
 
-module coins(lift = 0.05) {
-    for (l = [0 : n_lanes - 1]) for (p = pockets(l)) {
-        c   = p[0];
-        gap = 0.02;   // coins packed to the front of the pocket, as they rest
-        for (j = [0 : group_size - 1])
-            color(COIN_COLORS[c])
-            translate([lane_x(l) + p[2], p[1] + gap + j * (c_t(c) + gap),
-                       zbot(c) + c_d(c) / 2 + lift])
-                rotate([-90, 0, 0]) cylinder(d = c_d(c), h = c_t(c), $fn = 64);
-    }
+// partial = true fills only the first few pockets of each lane (for renders)
+module coins(lift = 0.05, partial = false) {
+    for (l = [0 : n_lanes - 1]) let (P = pockets(l))
+        for (i = [0 : len(P) - 1]) if (!partial || i < 3 + l % 3) {
+            p   = P[i];
+            c   = p[0];
+            gap = 0.02;   // coins packed to the front of the pocket, as they rest
+            for (j = [0 : group_size - 1])
+                color(COIN_COLORS[c])
+                translate([lane_x(l) + p[2], p[1] + gap + j * (c_t(c) + gap),
+                           zbot(c) + c_d(c) / 2 + lift])
+                    rotate([-90, 0, 0]) cylinder(d = c_d(c), h = c_t(c), $fn = 64);
+        }
 }
 
 // =====================================================================
@@ -544,6 +577,7 @@ else if (part == "right_print")     translate([-(joint_x - hook_reach), 0, 0]) r
 else if (part == "exploded")        { left_half(); translate([explode, hook_slide, 0]) right_half(); }
 else if (part == "assembly_start")  { left_half(); translate([0, hook_slide, 0]) right_half(); }
 else if (part == "coins")           coins();
+else if (part == "coins_partial")   coins(partial = true);
 else if (part == "assembled_coins") { left_half(); right_half(); coins(); }
 else if (part == "fit_check")       intersection() { tray_full(); coins(); }
 else if (part == "overlap_check")   intersection() { left_half(); right_half(); }
