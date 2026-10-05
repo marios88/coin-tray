@@ -71,7 +71,7 @@ lip_underside_chamfer = 0;  // optional 45 deg root chamfer under the lip (0 = s
 wall_thickness      = 2.4;  // perimeter walls below the lip
 base_thickness      = 3.0;  // minimum floor under the deepest cradle
 divider_thickness   = 2.4;  // minimum deck web between neighbouring lanes
-deck_angle          = 10;   // tilt of the coin bed, rising towards the back (deg)
+deck_angle          = 3;   // tilt of the coin bed, rising towards the back (deg)
 deck_height         = -1;   // deck Z at the BACK wall (highest point); -1 = auto = deck_height_max
 // Highest usable deck_height (no coin rises above the rim), computed from the
 // actual back pockets of every lane (last coin pushed to the end of its pocket):
@@ -96,11 +96,12 @@ bottom_chamfer      = 0.6;  // bottom edges (elephant foot relief)
 coin_clearance  = 0.5;   // total diametral clearance of a cradle
 stack_clearance = 0.8;   // extra length per pocket of 5 coins (v2: 1.0; 0.8 keeps
                          // 8 groups of 20c and 10 of 5c in the shorter tilted lanes)
-front_clearance = 0.5;   // gap between the leaning front coins and the front wall
+front_clearance = 3;   // gap between the leaning front coins and the front wall
+back_clearance  = 10;   // gap between the back pockets (deepest cradle point) and the back wall
 group_size      = 5;     // coins per pocket
-stagger_ratio   = 0.35;  // sideways offset between pockets, x coin diameter
+stagger_ratio   = 0.15;  // sideways offset between pockets, x coin diameter
 coin_exposure   = 0.5;   // fraction of the coin diameter standing above the deck
-separator_min   = 12;    // minimum deck between the 2c and 1c sections
+separator_min   = 5;    // minimum deck between the 2c and 1c sections
 
 /* [Joint] */
 joint_x          = tray_length / 2;  // split plane
@@ -123,8 +124,8 @@ HOOKS = [[16, 0], [42, 1], [66, 0], [92, 1]];
 
 /* [Group counts] */
 show_counts       = true;
-count_size        = 3.2;   // text size of the counts: digits ~1.0 x size tall, two digits ~1.5 x size wide
-count_emboss      = 0.6;   // height of counts and ticks above the deck
+count_size        = 4;   // text size of the counts: digits ~1.0 x size tall, two digits ~1.5 x size wide
+count_emboss      = 1;   // height of counts and ticks above the deck
 count_tick_length = 5.0;   // length of the tick line above each count (a bit wider than "50")
 count_line_width  = 0.8;   // tick width (2 extrusion lines)
 count_text_gap    = 0.6;   // gap between tick and count
@@ -150,7 +151,7 @@ d_1c  = 16.25;  t_1c  = 1.67;
 
 /* [Quality] */
 $fn = 96;
-text_fn = 16;   // curve segments for text (the global $fn would make ~120 numbers very slow to render)
+text_fn = 32;   // curve segments for text (the global $fn would make ~120 numbers very slow to render)
 
 // =====================================================================
 //  Derived values
@@ -199,11 +200,12 @@ max_cdepth = max([for (c = [0 : len(COINS) - 1]) cdepth(c)]);
 deck_front_y = well_y1 - (well_y1 - well_y0) / cos(deck_angle);
 // Per coin: first usable local Y (the forward-leaning coin top clears the
 // front wall by front_clearance) and last usable local Y (the cradle bottom
-// stays inside the back wall).
+// stays back_clearance inside the back wall).
 function bed_front(c) = well_y1 - (well_y1 - well_y0 - front_clearance
                         - (coin_exposure * c_d(c) - coin_clearance / 2) * sin(deck_angle))
                         / cos(deck_angle);
-function bed_back(c)  = well_y1 - cdepth(c) * tan(deck_angle) - 0.05;
+function bed_back(c)  = well_y1 - back_clearance / cos(deck_angle)
+                        - cdepth(c) * tan(deck_angle) - 0.05;
 
 // Lane placement: every lane gets a gutter on its left (for the counts),
 // equal within each half.  Left of the split there is a fixed web; the first
