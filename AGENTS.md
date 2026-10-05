@@ -32,7 +32,8 @@ split into two halves for FDM printing. Read this before changing anything.
 
 | file | what |
 |---|---|
-| `coin_tray_v3.scad` | **current** — tilted coin bed (10°), counts, back-wall labels |
+| `coin_tray_v4.scad` | **current** — v3 with no front/back walls (side walls + lip only), deck labels |
+| `coin_tray_v3.scad` | tilted coin bed, counts, back-wall labels |
 | `coin_tray_v2.scad` | flat deck, straight-drop lip, counts, back-wall labels |
 | `coin_tray.scad` | v1 — first design (45° chamfer under the lip, no counts) |
 | `coin_tray_<v>_left.stl` / `_right.stl` | printable halves (binary STL, assembled coordinates) |
@@ -40,7 +41,7 @@ split into two halves for FDM printing. Read this before changing anything.
 | `build.py` | rebuilds STLs + checks + renders for one version |
 | `coin_tray_v2 (copy).scad` | **the owner's own scratch copy — do not touch or delete** |
 
-Keep each version in its own file. When the owner asks for "v4", copy v3
+Keep each version in its own file. When the owner asks for "v5", copy v4
 forward and leave the older versions working.
 
 ## Tooling
@@ -48,7 +49,7 @@ forward and leave the older versions working.
 - **OpenSCAD:** use `~/.local/bin/openscad-nightly` (2026.10.03 AppImage,
   Manifold backend). Each part renders in about 0.6 s.
   - The system `/usr/bin/openscad` is 2021.01 (CGAL): 4–17 min per part. Avoid it.
-- **`./build.py [v1|v2|v3|path.scad] [-D name=value ...] [--no-renders] [--no-checks]`:**
+- **`./build.py [v1|v2|v3|v4|path.scad] [-D name=value ...] [--no-renders] [--no-checks]`:**
   - Runs the model asserts first and prints lane capacities and deck numbers.
   - Writes both halves, then checks:
     - mesh is closed;
@@ -65,6 +66,36 @@ forward and leave the older versions working.
   - `none` prints only the `REPORT` echo lines.
 - The owner previews in the OpenSCAD **GUI with F5**. The preview must look
   right, not just the F6 render (see the pitfalls below).
+
+## Design (v4 = v3 plus these changes)
+
+- **No front/back walls:** only the two side walls, with their lip, remain.
+  - The body is flush with the envelope at the front and back (y 0..105,
+    `body_outline`). The lip is left on the side walls only, so the tray hangs
+    in a cut-out on the side lips.
+  - `well_y0` = 0 and `well_y1` = 105 are the faces. `deck_z` is the deck at
+    the back face. The well cutter runs 1 mm past both faces.
+- **Clearances:** `front_clearance` / `back_clearance` are the deck between
+  the pockets and the front/back face at deck level (in v3 they were gaps to
+  the walls).
+  - Asserted ≥ `wall_thickness`; the back one is checked at the cradle bottom,
+    because the pocket ends lean back with the tilt.
+  - Pockets are front-aligned (`block_y0` = section start, v3 centred them):
+    every lane's first pocket sits exactly `front_clearance` from the front
+    face, and the spare length goes behind the last pocket. The back gaps
+    therefore vary by lane (≥ `back_clearance`); the labels stay on one line.
+- **Edge bevel:** `deck_edge_chamfer` puts a 45° bevel on the front and back
+  deck edges, running through the side coves too.
+  - `deck_edge_bevels()` is a hull of `cove_slices` on the bevel plane, the
+    same construction as the well, so F5 stays clean.
+- **Labels:** debossed into the deck strip behind each lane, as in
+  `example.png`, centred between the last pocket's end chamfer and the back
+  bevel (`label_y`).
+  - One `label_size` serves the lane labels and the "1c" separator label.
+  - Asserted to fit the strip, the lane pitch and the separator.
+- **Capacities:** the open ends add about 9.8 mm of lane length. With
+  clearances 3/10 they are 35 35 35 | 40 40 50 | 20 20, the same as the table
+  below. With `front_clearance` 6, 20c drops to 35 and 5c to 45.
 
 ## Design (v3)
 
