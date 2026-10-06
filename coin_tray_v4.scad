@@ -5,12 +5,28 @@
 //  v4 changes (on top of v3):
 //   * No front and back walls: only the two side walls (with their lip)
 //     remain.  The deck runs out to the front and back faces, which are flush
-//     with the 105 mm envelope, and its front and back top edges are bevelled
-//     (deck_edge_chamfer).  The tray now hangs on the side lips only.
+//     with the tray_depth envelope (100 mm = the depth of the slot), and its
+//     front and back top edges are bevelled (deck_edge_chamfer).  The tray
+//     hangs on the side lips only.
 //   * front_clearance / back_clearance are the deck left between the pockets
 //     and the front / back face, measured at deck level.
 //   * Denomination labels are debossed into the deck behind each lane (as in
 //     example.png) instead of into the back wall.
+//   * A 45 deg bevel with a rounded top runs along the front bottom edge
+//     (front_bevel, front_bevel_round) of the side walls, the seam walls and
+//     the front beam.
+//   * Hollow underside (hollow): below the coin bed there is one open cavity
+//     per half, under skin_thickness of deck and cradle skin, between the side
+//     walls and in front of a wall_thickness back skin.  It is open at the
+//     bottom and (front_open) at the front, so other things fit under the deck.
+//     The cavity ceiling needs supports.
+//   * Lengthwise beams (front_beam, beam_pitch): the tray hangs on its side
+//     lips, so it bends along its length.  A beam under the front edge of the
+//     deck and more beams about every beam_pitch behind it run from side wall
+//     to seam wall.  Their underside is level with the lowest cradle skin, so
+//     they cost no clear height; the deck between them is a short bridge.
+//   * Glued joint: a full-depth wall on each half at the split (the glue
+//     faces) and vertical dovetail keys (KEYS) instead of the L-hooks.
 //
 //  v3 changes (on top of v2):
 //   * The whole coin bed (deck, cradles, pockets, counts) is tilted by
@@ -43,24 +59,24 @@
 //  with half the capacity of a full lane.
 //
 //  Coordinates:  X = length (left -> right, 0..310)
-//                Y = depth  (0 = front / cashier side .. 105 = back)
+//                Y = depth  (0 = front / cashier side .. 100 = back)
 //                Z = up     (0 = bed .. 45)
 //
-//  The assembled tray occupies exactly [0,310] x [0,105] x [0,45].
-//  It is split at x = 155 between the 50c and 20c lanes.  The halves are
-//  joined by interlocking L-hooks standing on the bed under the coin deck:
-//  two hooks of the right half reach into bridged pockets of the left half
-//  and two hooks of the left half reach into the right half.  Each hook has
-//  a claw that turns sideways behind a catch, so once engaged the halves
-//  cannot pull apart (X) and neither half can move up or down relative to
-//  the other (Z).
+//  The assembled tray occupies exactly [0,310] x [0,100] x [0,45].
+//  It is split at x = 155 between the 50c and 20c lanes.  Each half has a
+//  full-depth wall at the split (from the bed up into the deck); the two
+//  walls are glued face to face.  Vertical dovetail keys on the left half's
+//  seam face sit in grooves of the right half: they line the halves up and
+//  hold them together (X) while the glue cures.
 //
-//  Assembly: set both halves on the table with the right half shifted
-//  hook_slide (4.3 mm) towards the back, push them together, then slide the
-//  right half forwards until it stops - the front and back faces line up.
+//  Assembly: glue on the seam faces and keys, set the left half on the table,
+//  lower the right half onto it from above (keys into the grooves, which are
+//  open at the bottom) until it sits on the table; front and back faces line up.
 //
-//  Print: both halves upright, flat bottom on the bed, no supports.  Every
-//  joint feature is a vertical prism; pocket ceilings are short bridges.
+//  Print: both halves upright, flat bottom on the bed.  The cavity under the
+//  coin bed needs supports (tree supports, on build plate only - the cavity
+//  is open at the bottom).  Everything else prints without: the keys are
+//  vertical prisms and the groove tops are short bridges.
 // =====================================================================
 
 /* [Render selection] */
@@ -71,17 +87,18 @@ part = "assembled";
 
 /* [Finished overall dimensions] */
 tray_length   = 310;   // lip to lip, X
-tray_depth    = 105;   // front face to back face, Y
+tray_depth    = 100;   // front face to back face, Y (= the depth of the slot: no lip at the front and back)
 tray_height   = 45;    // Z
-lip_width     = 2.5;   // top flange overhang on the side walls (inside the 310 x 105 envelope)
+lip_width     = 2.5;   // top flange overhang on the side walls (inside the 310 x 100 envelope)
 lip_thickness = 2.0;   // flange thickness; its underside is flat (straight drop)
 lip_underside_chamfer = 0;  // optional 45 deg root chamfer under the lip (0 = sharp ledge)
 
 /* [Structure] */
-wall_thickness      = 2.4;  // side walls below the lip; also the least material around a pocket
+wall_thickness      = 2.4;  // side walls below the lip, front / back skins of the hollow body;
+                            // also the least material around a pocket
 base_thickness      = 3.0;  // minimum floor under the deepest cradle
 divider_thickness   = 2.4;  // minimum deck web between neighbouring lanes
-deck_angle          = 3;   // tilt of the coin bed, rising towards the back (deg)
+deck_angle          = 1;   // tilt of the coin bed, rising towards the back (deg)
 deck_height         = -1;   // deck Z at the BACK face (highest point); -1 = auto = deck_height_max
 // Highest usable deck_height (no coin rises above the top of the side walls),
 // computed from the actual back pockets of every lane (last coin pushed to the
@@ -99,6 +116,26 @@ pocket_end_chamfer  = 0.4;  // smaller chamfer at pocket ends / zig-zag steps, l
 rim_chamfer         = 0.8;  // inner top edge of the rim
 lip_edge_chamfer    = 0.5;  // outer top edge of the lip
 bottom_chamfer      = 0.6;  // bottom edges (elephant foot relief)
+front_bevel         = 20;   // 45 deg bevel along the front bottom edge: this tall and this deep (0 = none)
+front_bevel_round   = 5;    // radius where the bevel meets the vertical front face
+
+/* [Hollow underside] */
+hollow          = true;  // open cavity under the coin bed (print it with supports, on build plate only)
+front_open      = true;  // no front skin: the cavity is open at the front as well
+front_beam      = true;  // lengthwise beam under the front edge of the deck
+beam_pitch      = 10;    // more lengthwise beams behind it, about this far apart, evenly
+                         // spaced up to the back skin (0 = front beam only)
+beam_width      = 2.4;   // thickness of the beams (and width of the front beam's flat
+                         // underside behind the front bevel)
+beam_bottom     = -1;    // Z of the beams' underside; -1 = auto: level with the lowest
+                         // cradle skin, so the beams cost no clear height
+lane_support    = false; // true: each lane sits on a solid, flat-bottomed block that reaches
+                         // skin_thickness below its deepest coin (false: the skin follows
+                         // the round cradles)
+skin_thickness  = 2.4;   // deck and cradle skin over the cavity
+// Cavity pieces narrower than this are left solid: slots that thin print badly
+// and their supports cannot be pulled out
+cavity_min_width = 2 * skin_thickness;
 
 /* [Coin storage] */
 coin_clearance  = 0.5;   // total diametral clearance of a cradle
@@ -114,22 +151,21 @@ separator_min   = 5;    // minimum deck between the 2c and 1c sections
 
 /* [Joint] */
 joint_x          = tray_length / 2;  // split plane
-joint_clearance  = 0.3;  // clearance on every mating surface of the hooks
-seam_gap         = joint_clearance;  // gap between the butt faces (split evenly,
+joint_clearance  = 0.3;  // clearance (glue gap) on every mating surface of the keys
+seam_gap         = joint_clearance;  // gap between the glued seam faces (split evenly,
                                       // so the external length stays 310)
 joint_web_left   = 5.0;  // deck web between the 50c lane and the split plane
 edge_margin_right = 3.0; // deck between the last lane and the right wall
-hook_height      = 7.0;  // hooks stand on the bed, 0..hook_height
-hook_reach       = 8.0;  // how far a hook reaches past the split plane
-hook_arm_width   = 6.0;  // Y width of the arm that crosses the seam
-hook_claw_depth  = 4.0;  // X thickness of the claw at the end of the arm
-hook_claw_length = 4.0;  // how far the claw turns sideways (Y)
-hook_slide       = hook_claw_length + joint_clearance;  // Y travel to engage
-hook_relief      = 0.4;  // elephant-foot relief at the bed on hooks and pockets
-// [y, type]: type 0 = on the right half, reaching into the left half, claw to
-// the front; type 1 = on the left half, reaching into the right half, claw to
-// the back.  Alternate them so both vertical directions are locked.
-HOOKS = [[16, 0], [42, 1], [66, 0], [92, 1]];
+// The seam walls fill from the split to the skin of the neighbouring lanes.
+// Vertical dovetail keys stand on the left half's seam face (narrow at the
+// seam, wide at the tip) and sit in grooves of the right half that are open at
+// the bottom: the right half is lowered onto the left one from above.
+KEYS             = [30, 70];  // y of the key centres
+key_root_width   = 8.0;  // Y width at the seam face
+key_tip_width    = 12.0; // Y width at the tip (wider than the root: locks X)
+key_depth        = 4.0;  // how far a key reaches into the right half (X)
+key_height       = 20.0; // keys stand on the bed, 0..key_height
+key_relief       = 0.4;  // elephant-foot relief at the bed on keys and grooves
 
 /* [Group counts] */
 show_counts       = true;
@@ -230,33 +266,38 @@ function lane_x(l) = l < n_left
 function count_x1(l, c, k) =   // right end of the tick of pocket k (coin c) in lane l
     lane_x(l) + (k % 2 == 0 ? -1 : 1) * stag(c) / 2 - R(c) - count_offset;
 
-// Sections of a lane: [coin, y start, available length]
+// Sections of a lane: [coin, y start, available length, align]
+// align 0 = pockets at the front of the section, 1 = at its back
 function sections(l) = len(LANES[l]) == 1
-    ? let (c = LANES[l][0]) [[c, bed_front(c), bed_back(c) - bed_front(c)]]
+    ? let (c = LANES[l][0]) [[c, bed_front(c), bed_back(c) - bed_front(c), 0]]
     : let (cf = LANES[l][1], cb = LANES[l][0], y0 = bed_front(cf), y1 = bed_back(cb),
            sec = (y1 - y0 - separator_min) / 2)
-      [[cf, y0, sec],                             // front section (1c)
-       [cb, y1 - sec, sec]];                      // back section  (2c)
+      [[cf, y0, sec, 0],                          // front section (1c)
+       [cb, y1 - sec, sec, 1]];                   // back section  (2c)
 
 function n_groups(c, len) = floor(len / plen(c));
-// Pockets start at the front of their section, so every lane's first pocket
-// sits exactly front_clearance from the front face; the spare length of a
-// section goes behind its last pocket (v3 centred the pockets instead).
-function block_y0(c, ys, len) = ys;
+// Start of a section's first pocket.  Front-aligned sections (all single
+// lanes and the 1c section) start at the front of their section, so every
+// lane's first pocket sits exactly front_clearance from the front face and
+// the spare length goes behind the last pocket.  The back (2c) section of the
+// shared lane is back-aligned, so the spare length of both its sections goes
+// into the separator between them (room for the "1c" label).
+function block_y0(s) = s[1] + s[3] * (s[2] - n_groups(s[0], s[2]) * plen(s[0]));
+function block_y1(s) = block_y0(s) + n_groups(s[0], s[2]) * plen(s[0]);   // end of the last pocket
 
 // Pockets of a lane: [coin, y0, x offset from lane centre]
 function pockets(l) = [
     for (s = sections(l))
         for (k = [0 : n_groups(s[0], s[2]) - 1])
             [s[0],
-             block_y0(s[0], s[1], s[2]) + k * plen(s[0]),
+             block_y0(s) + k * plen(s[0]),
              (k % 2 == 0 ? -1 : 1) * stag(s[0]) / 2]
 ];
 
 // Height of the highest coin point of a section above the deck height at the
 // back face (worst case: last coin pushed to the end of its pocket).
 function coin_rise(s) =
-    let (c = s[0], yend = block_y0(c, s[1], s[2]) + n_groups(c, s[2]) * plen(c))
+    let (c = s[0], yend = block_y1(s))
     (coin_exposure * c_d(c) - coin_clearance / 2) * cos(deck_angle)
     + (yend - well_y1) * sin(deck_angle);
 deck_height_max = tray_height - max([for (l = [0 : n_lanes - 1]) for (s = sections(l)) coin_rise(s)]);
@@ -270,44 +311,94 @@ module bed_tf() {
 function deck_w(y) = deck_z - (well_y1 - y) * tan(deck_angle);
 
 // World Z of the cradle bottom at the front end of a section's first pocket
-function front_floor(s) = let (c = s[0], y = block_y0(c, s[1], s[2]))
+function front_floor(s) = let (c = s[0], y = block_y0(s))
     deck_z + (y - well_y1) * sin(deck_angle) - cdepth(c) * cos(deck_angle);
 min_floor = min([for (l = [0 : n_lanes - 1]) for (s = sections(l)) front_floor(s)]);
 
-// Half width of a (tilted) cradle at world height z and world depth y: the
-// vertical section of the tilted cylinder is an ellipse.
-function cradle_hw_w(c, y, z) =
-    let (za = deck_w(y) + (zc(c) - deck_z) / cos(deck_angle),
-         q  = R(c) ^ 2 - (cos(deck_angle) * (za - z)) ^ 2)
-    z >= za ? R(c) : q <= 0 ? 0 : sqrt(q);
+// World [y, z] of a point given in the local (flat) bed frame
+function bed_pt(yl, zl) = [well_y1 + (yl - well_y1) * cos(deck_angle) - (zl - deck_z) * sin(deck_angle),
+                           deck_z + (yl - well_y1) * sin(deck_angle) + (zl - deck_z) * cos(deck_angle)];
 
-// Joint hooks.  Rectangles [x0, x1, y0, y1] relative to (joint_x, hook y).
-hook_e = seam_gap / 2 + 1;   // part of the arm buried in its own half
-function hook_rects(t) = t == 0
-    ? [[-hook_reach, hook_e, 0, hook_arm_width],
-       [-hook_reach, -hook_reach + hook_claw_depth, -hook_claw_length, 0]]
-    : [[-hook_e, hook_reach, -hook_arm_width, 0],
-       [hook_reach - hook_claw_depth, hook_reach, 0, hook_claw_length]];
-// Y offset of a hook (relative to the receiving half) before the engaging slide
-function hook_start(t) = (t == 0 ? 1 : -1) * hook_slide;
-// Hook rectangles swept over the engaging slide
-function hook_swept(t) = let (d = hook_start(t))
-    [for (r = hook_rects(t)) [r[0], r[1], r[2] + min(0, d), r[3] + max(0, d)]];
+// Front bevel: the body's side profile (Y-Z) has a 45 deg bevel from
+// (fbv, 0) up to (0, fbv), whose top corner is rounded by front_bevel_round.
+// The same points build the body hull and the front / back skins.
+fbv  = max(front_bevel, bottom_chamfer);
+fbr  = front_bevel > 0 ? front_bevel_round : 0;
+fb_top = fbv + tan(22.5) * fbr;   // where the round leaves the vertical front face
+function front_pts() = concat(
+    [[0, tray_height]],
+    fbr > 0 ? [for (i = [0 : 6]) let (a = 180 + 45 * i / 6) [fbr + fbr * cos(a), fb_top + fbr * sin(a)]]
+            : [[0, fbv]],
+    [[fbv, 0]]);
+function side_pts() = concat(front_pts(),
+    [[tray_depth - bottom_chamfer, 0], [tray_depth, bottom_chamfer], [tray_depth, tray_height]]);
+// Distance from the lowest front corner of a section's first pocket to the bevel
+function bevel_gap(s) = let (p = bed_pt(block_y0(s), zbot(s[0]))) (p[0] + p[1] - fbv) / sqrt(2);
+// Y of the front face at height z (front_pts() runs downwards)
+function front_y(z) = let (P = front_pts(),
+                           i = [for (k = [0 : len(P) - 2]) if (P[k][1] >= z && P[k + 1][1] <= z) k][0],
+                           a = P[i], b = P[i + 1])
+    a[0] + (b[0] - a[0]) * (a[1] - z) / max(a[1] - b[1], 1e-9);
 
-// wall left between a hook pocket and the neighbouring cradle, checked at the
-// front end of each pocket where the tilted deck (and cradle) is lowest
-hook_ztop = hook_height + joint_clearance;
-c_jl = LANES[n_left - 1][0];
-c_jr = LANES[n_left][0];
-function hook_y_min(h) = h[0] + min([for (r = hook_swept(h[1])) r[2]]) - joint_clearance;
-function hook_y_max(h) = h[0] + max([for (r = hook_swept(h[1])) r[3]]) + joint_clearance;
-function hook_wall(h) = h[1] == 0
-    ? (joint_x - hook_reach - joint_clearance)
-      - (lane_x(n_left - 1) + W[n_left - 1] / 2 - R(c_jl) + cradle_hw_w(c_jl, hook_y_min(h), hook_ztop))
-    : (lane_x(n_left) - W[n_left] / 2 + R(c_jr) - cradle_hw_w(c_jr, hook_y_min(h), hook_ztop))
-      - (joint_x + hook_reach + joint_clearance);
-hook_wall_left  = min([for (h = HOOKS) if (h[1] == 0) hook_wall(h)]);
-hook_wall_right = min([for (h = HOOKS) if (h[1] == 1) hook_wall(h)]);
+// Clear height under the coin bed: below the lowest cradle skin
+clear_under_cradles = min_floor - skin_thickness / cos(deck_angle);
+// Beams: underside at beam_z.  The front beam is flat for beam_width behind
+// the bevel (back face at beam_y1); the others are spread evenly between it
+// and the back skin, beam_p apart (front face of each at BEAM_YS)
+beam_z  = beam_bottom < 0 ? clear_under_cradles : beam_bottom;
+beam_y1 = front_y(beam_z) + beam_width;
+beam_ya = front_beam ? beam_y1 : well_y0 + front_skin;   // clear span for the other beams
+beam_yb = well_y1 - wall_thickness;
+n_beams = beam_pitch > 0 ? max(0, round((beam_yb - beam_ya + beam_width) / beam_pitch) - 1) : 0;
+beam_p  = (beam_yb - beam_ya + beam_width) / (n_beams + 1);
+BEAM_YS = n_beams > 0 ? [for (k = [1 : n_beams]) beam_ya + k * beam_p - beam_width] : [];
+
+// Hollow underside.  Lane l (cradles plus their skin) spans X from lane_ext_l
+// to lane_ext_r; the cavity is cut in pieces under each lane section (A),
+// between lanes (B) and under the deck strips around the sections (C).
+function lane_ext_l(l) = lane_x(l) - W[l] / 2 - skin_thickness;
+function lane_ext_r(l) = lane_x(l) + W[l] / 2 + skin_thickness;
+cav_top = deck_z - skin_thickness;                      // local Z of the cavity ceiling
+cav_bot = deck_z - tray_height - tray_depth;            // local Z well below the bed
+cav_y0  = -tray_depth;  cav_y1 = 2 * tray_depth;        // local Y well past both faces
+// B: [x0, x1] between the lanes and next to the side walls (the seam walls
+// fill the span across the split)
+B_SPANS = concat([[well_x0, lane_ext_l(0)]],
+                 [for (l = [0 : n_lanes - 2]) if (l != n_left - 1) [lane_ext_r(l), lane_ext_l(l + 1)]],
+                 [[lane_ext_r(n_lanes - 1), well_x1]]);
+// C: [lane, y0, y1, width, name, open]; y0 / y1 are local and reach past the
+// faces, width is the clear strip between the skins (world).  An open strip
+// (the front one when front_open) is cut whatever its width: it is not a slot.
+front_skin = front_open ? 0 : wall_thickness;
+function c_strips(l) = let (S = sections(l), n = len(S), sk = skin_thickness) concat(
+    [[l, cav_y0, block_y0(S[0]) - sk,
+      y_world(block_y0(S[0]) - sk) - (well_y0 + front_skin), str("front ", COINS[S[0][0]][0]), front_open]],
+    [for (i = [0 : n - 2]) [l, block_y1(S[i]) + sk, block_y0(S[i + 1]) - sk,
+      (block_y0(S[i + 1]) - block_y1(S[i])) * cos(deck_angle) - 2 * sk, str("separator ", COINS[S[i][0]][0]),
+      false]],
+    [[l, block_y1(S[n - 1]) + sk, cav_y1,
+      (well_y1 - wall_thickness) - y_world(block_y1(S[n - 1]) + sk), str("back ", COINS[S[n - 1][0]][0]),
+      false]]);
+C_STRIPS = [for (l = [0 : n_lanes - 1]) each c_strips(l)];
+function c_cut(c) = c[5] || c[3] >= cavity_min_width;
+cavity_dropped = concat(
+    [for (b = B_SPANS) if (b[1] - b[0] < cavity_min_width) str("gap x=", b[0], " ", b[1] - b[0])],
+    [for (c = C_STRIPS) if (!c_cut(c)) str(c[4], " ", c[3])]);
+
+// Seam walls: from the skin of the neighbouring lanes to the split
+seam_wall_left  = joint_x - seam_gap / 2 - lane_ext_r(n_left - 1);
+seam_wall_right = lane_ext_l(n_left) - (joint_x + seam_gap / 2);
+// Top of the seam walls and skins: just into the deck slab (world, at y)
+function skin_top(y) = deck_w(y) - skin_thickness / cos(deck_angle) + 0.5;
+
+// Joint keys.  Plan view relative to (joint_x, key y): a dovetail whose neck is
+// at the right half's seam face; key_e of it is buried in the left half.
+key_e = seam_gap / 2 + 1;
+function key_pts() = [[-key_e, -key_root_width / 2], [seam_gap / 2, -key_root_width / 2],
+                      [key_depth, -key_tip_width / 2], [key_depth, key_tip_width / 2],
+                      [seam_gap / 2, key_root_width / 2], [-key_e, key_root_width / 2]];
+key_ymin = min(KEYS) - key_tip_width / 2 - joint_clearance;   // groove extent in Y
+key_ymax = max(KEYS) + key_tip_width / 2 + joint_clearance;
 
 // Lane labels: centred on the deck strip behind the last pockets, between
 // their end chamfer and the bevel on the back edge
@@ -323,11 +414,23 @@ lane_pitch_min = min([for (l = [0 : n_lanes - 2]) lane_x(l + 1) - lane_x(l)]);
 assert(deck_z <= deck_height_max + 1e-9, "coins would rise above the rim");
 assert(min_floor >= base_thickness,
        "deck too low / too steep for base_thickness under the front cradles");
-assert(hook_wall_left  >= wall_thickness, "hook pocket too close to the 50c cradle");
-assert(hook_wall_right >= wall_thickness, "hook pocket too close to the 20c cradle");
-assert(hook_ztop + wall_thickness <= deck_w(well_y0), "hooks too tall for the deck");
-assert(min([for (h = HOOKS) hook_y_min(h)]) >= well_y0 + wall_thickness, "hook too close to the front");
-assert(max([for (h = HOOKS) hook_y_max(h)]) <= well_y1 - wall_thickness, "hook too close to the back");
+// joint: seam walls and keys
+assert(seam_wall_left >= wall_thickness, "left seam wall too thin (50c lane too close to the split)");
+assert(seam_wall_right - seam_gap / 2 >= key_depth + joint_clearance + wall_thickness,
+       "right seam wall too thin for the key grooves (20c lane too close to the split)");
+assert(key_tip_width > key_root_width && key_depth > seam_gap / 2, "keys must widen towards the tip");
+assert(key_height + joint_clearance + wall_thickness <= deck_w(key_ymin) - skin_thickness,
+       "keys too tall for the seam walls");
+assert(key_ymin - wall_thickness >= fbv, "first key too close to the front (bevel)");
+assert(key_ymax + wall_thickness <= well_y1 - bottom_chamfer, "last key too close to the back");
+// front bevel: below the deck, and clear of the first pockets
+assert(fbv - (1 - cos(45)) * fbr >= 0, "front_bevel_round too big for front_bevel");
+assert(fb_top <= deck_w(well_y0) - deck_edge_chamfer - 1,
+       "front bevel reaches the deck (lower front_bevel or front_bevel_round)");
+assert(front_bevel == 0 || min([for (l = [0 : n_lanes - 1]) bevel_gap(sections(l)[0])]) >= wall_thickness,
+       "front bevel comes too close to the first pockets (lower front_bevel, front_clearance up or deck_angle down)");
+assert((!front_beam && n_beams == 0) || (beam_z >= 0 && beam_z <= skin_top(well_y0) - skin_thickness),
+       "beam_bottom must lie between the bed and the deck slab");
 // deck in front of / behind the pockets (the pocket ends lean back with the
 // tilt, so the front web is thinnest at the deck, the back web at the cradle bottom)
 assert(front_clearance >= max(wall_thickness, deck_edge_chamfer + pocket_end_chamfer + 1),
@@ -394,10 +497,14 @@ module slab(z, h = 0.01) { translate([0, 0, z]) linear_extrude(h) children(); }
 // =====================================================================
 module shell() {
     z_lip = tray_height - lip_thickness;   // flat underside of the lip
-    hull() {   // body: side walls straight down lip_width inside the outer edge
-        slab(0)                  body_outline(bottom_chamfer);
-        slab(bottom_chamfer)     body_outline(0);
-        slab(tray_height - 0.01) body_outline(0);
+    hull() {   // body: side walls straight down lip_width inside the outer edge,
+               // front bottom edge bevelled (one slab per point of front_pts())
+        rc = corner_radius - lip_width;
+        slab(0)              rrect(lip_width + bottom_chamfer, fbv, tray_length - lip_width - bottom_chamfer,
+                                   tray_depth - bottom_chamfer, rc - bottom_chamfer);
+        slab(bottom_chamfer) rrect(lip_width, fbv - bottom_chamfer, tray_length - lip_width, tray_depth, rc);
+        for (p = front_pts()) if (p[1] > bottom_chamfer)
+            slab(min(p[1], tray_height - 0.01)) rrect(lip_width, p[0], tray_length - lip_width, tray_depth, rc);
     }
     hull() {   // lip flange (the well cutter leaves it on the side walls only)
         slab(z_lip)                          outer_outline(0);
@@ -534,8 +641,7 @@ module lane_cutter(l) {
 // Deck separator of a shared lane in local Y: [end of the front section's last
 // pocket, start of the back section's first pocket]
 function sep_span(l) =
-    let (s = sections(l), f = s[0], b = s[1])
-    [block_y0(f[0], f[1], f[2]) + n_groups(f[0], f[2]) * plen(f[0]), block_y0(b[0], b[1], b[2])];
+    let (s = sections(l)) [block_y1(s[0]), block_y0(s[1])];
 function sep_center_y(l) = (sep_span(l)[0] + sep_span(l)[1]) / 2;
 function sep_len(l) = (sep_span(l)[1] - sep_span(l)[0]) * cos(deck_angle);   // world
 
@@ -556,6 +662,98 @@ module separator_labels() {   // front section of the shared lane, on the deck s
 }
 
 // =====================================================================
+//  Hollow underside
+// =====================================================================
+// One open cavity per half under the coin bed.  It is cut from the shell in
+// pieces that are plain boxes or Y-extrusions of 2D shapes in the bed frame
+// (no 3D intersections or nested differences, so F5 stays clean):
+//   A  under each lane section, over the section's pockets +- skin_thickness
+//      (end caps): with lane_support a box up to a flat floor skin_thickness
+//      below the deepest coin, so the lane sits on a solid block; without it
+//      the lane's width minus the cradles grown by skin_thickness (both
+//      zig-zag offsets), so the skin follows the cradles;
+//   B  between the lanes and next to the side walls, full depth;
+//   C  the deck strips in front of / behind each lane and the 2c/1c separator.
+// B and C run from below the bed to skin_thickness under the deck.  All pieces
+// run out through the front and back faces; outer_skins() puts wall_thickness
+// back at the back (and at the front unless front_open), following the side
+// profile.  Closed pieces narrower than cavity_min_width stay solid.  The span
+// across the split is not hollowed: it is the seam wall.
+module cav_under_section(l, s) {   // A
+    c  = s[0];
+    ya = block_y0(s) - skin_thickness;
+    yb = block_y1(s) + skin_thickness;
+    if (lane_support)
+        translate([lane_ext_l(l) - 0.01, ya, cav_bot])
+            cube([lane_ext_r(l) - lane_ext_l(l) + 0.02, yb - ya, zbot(c) - skin_thickness - cav_bot]);
+    else
+        translate([0, yb, 0]) rotate([90, 0, 0]) linear_extrude(yb - ya)
+            difference() {
+                translate([lane_ext_l(l) - 0.01, cav_bot])
+                    square([lane_ext_r(l) - lane_ext_l(l) + 0.02, cav_top - cav_bot]);
+                for (o = [-1, 1]) translate([lane_x(l) + o * stag(c) / 2, 0])
+                    offset(r = skin_thickness) pocket_profile(c);
+            }
+}
+
+module cavity() {   // in the bed frame (bed_tf)
+    for (l = [0 : n_lanes - 1]) for (s = sections(l)) cav_under_section(l, s);
+    for (c = C_STRIPS) if (c_cut(c))   // C
+        translate([lane_ext_l(c[0]) - 0.01, c[1] - 0.01, cav_bot])
+            cube([lane_ext_r(c[0]) - lane_ext_l(c[0]) + 0.02, c[2] - c[1] + 0.02, cav_top - cav_bot]);
+    for (b = B_SPANS) if (b[1] - b[0] >= cavity_min_width)   // B
+        translate([b[0], cav_y0, cav_bot]) cube([b[1] - b[0], cav_y1 - cav_y0, cav_top - cav_bot]);
+}
+
+// The body's side profile (Y-Z) extended past the top and the bed, so that its
+// inward offset only moves the front and back faces
+function side_ext_pts() = concat([[0, tray_height + 50]],
+    [for (i = [1 : len(front_pts()) - 2]) front_pts()[i]],
+    [[fbv + 50, -50], [tray_depth, -50], [tray_depth, tray_height + 50]]);
+
+module below_skin_top() {   // Y-Z: everything below skin_top(y)
+    polygon([[-1, -60], [tray_depth + 1, -60],
+             [tray_depth + 1, skin_top(tray_depth + 1)], [-1, skin_top(-1)]]);
+}
+
+module yz_extrude(x0, x1) {   // 2D (y, z) shape extruded along X from x0 to x1
+    translate([x0, 0, 0]) rotate([90, 0, 90]) linear_extrude(x1 - x0) children();
+}
+
+// Back (and, unless front_open, front) skin: the side profile minus its inward
+// offset, from the bed up into the deck slab, across the whole well
+module outer_skins() {
+    yz_extrude(well_x0 - 0.01, well_x1 + 0.01)
+        intersection() {
+            difference() {
+                polygon(side_pts());
+                offset(delta = -wall_thickness) polygon(side_ext_pts());
+            }
+            below_skin_top();
+            translate([front_open ? tray_depth / 2 : -1, -60]) square([tray_depth + 2, 200]);
+        }
+}
+
+// Lengthwise beams from beam_z up into the deck slab, across the whole well:
+// the front one is the side profile (with the front bevel) from the front face
+// back to beam_y1, the others are beam_width thick at BEAM_YS
+module beams() {
+    module band(y0, y1) polygon([[y0, beam_z], [y1, beam_z], [y1, skin_top(y1)], [y0, skin_top(y0)]]);
+    yz_extrude(well_x0 - 0.01, well_x1 + 0.01) {
+        if (front_beam) intersection() { polygon(side_pts()); band(-1, beam_y1); }
+        for (y = BEAM_YS) band(y, y + beam_width);
+    }
+}
+
+module body() {
+    if (hollow) {
+        difference() { shell(); bed_tf() cavity(); }
+        outer_skins();
+        beams();
+    } else shell();
+}
+
+// =====================================================================
 //  Whole tray (one piece, before splitting)
 // =====================================================================
 // Raised running count + tick at the back (top) left of every pocket
@@ -566,7 +764,7 @@ module count_marks() {   // vertical sides, top parallel to the tilted deck
             x1 = count_x1(l, c, k);   // zig-zags with the stacks
             // back face of the 5th coin (coins packed to the front of the pocket);
             // the tick ends exactly there and sits entirely beside its own stack
-            ye = y_world(block_y0(c, s[1], s[2]) + k * plen(c) + group_size * c_t(c));
+            ye = y_world(block_y0(s) + k * plen(c) + group_size * c_t(c));
             on_deck(-0.01, count_emboss + 0.01) {
                 translate([x1 - count_tick_length, ye - count_line_width])
                     square([count_tick_length, count_line_width]);
@@ -580,7 +778,7 @@ module count_marks() {   // vertical sides, top parallel to the tilted deck
 
 module tray_full() {
     difference() {
-        shell();
+        body();
         well_cutter();
         deck_edge_bevels();
         bed_tf() for (l = [0 : n_lanes - 1]) lane_cutter(l);   // tilted with the bed
@@ -590,58 +788,43 @@ module tray_full() {
 }
 
 // =====================================================================
-//  Joint: interlocking L-hooks on the bed
+//  Joint: glued seam walls with vertical dovetail keys
 // =====================================================================
-//  Each hook is a vertical prism (plan view: an arm that crosses the seam
-//  plus a claw that turns sideways).  The receiving half has a pocket that
-//  is open at the bed and at the seam face; it is the hook swept over the
-//  engaging slide, grown by joint_clearance.  The pocket ceiling is a short
-//  bridge, the claw ends up behind a solid catch, so the halves are locked
-//  in X and in both Z directions.
-module rects2d(rs) {
-    for (r = rs) translate([r[0], r[2]]) square([r[1] - r[0], r[3] - r[2]]);
-}
+//  The span between the 50c and 20c lane skins is not hollowed out: it is the
+//  seam wall of each half, and the two walls are glued face to face.  Each key
+//  is a vertical prism on the left half's seam face, a dovetail in plan (neck
+//  at the right half's face, wide tip inside it), so it locks X and Y.  The
+//  right half's groove is the key grown by joint_clearance, open at the bottom
+//  and closed by a short bridge at the top: the right half is lowered onto the
+//  left half from above.
+module key_2d(g = 0) { offset(delta = g) polygon(key_pts()); }
 
-module hook(h) {   // h = [y, type]
-    translate([joint_x, h[0], 0]) {
-        translate([0, 0, hook_relief])
-            linear_extrude(hook_height - hook_relief) rects2d(hook_rects(h[1]));
-        linear_extrude(hook_relief + 0.01)
-            offset(delta = -hook_relief) rects2d(hook_rects(h[1]));
+module key(y) {
+    translate([joint_x, y, 0]) {
+        translate([0, 0, key_relief]) linear_extrude(key_height - key_relief) key_2d();
+        linear_extrude(key_relief + 0.01) key_2d(-key_relief);
     }
 }
 
-module hook_pocket(h) {
-    translate([joint_x, h[0], -1]) {
-        linear_extrude(1 + hook_height + joint_clearance)
-            offset(delta = joint_clearance) rects2d(hook_swept(h[1]));
-        linear_extrude(1 + hook_relief + 0.2)   // elephant-foot relief at the opening
-            offset(delta = joint_clearance + hook_relief) rects2d(hook_swept(h[1]));
+module key_groove(y) {
+    translate([joint_x, y, -1]) {
+        linear_extrude(1 + key_height + joint_clearance) key_2d(joint_clearance);
+        linear_extrude(1 + key_relief + 0.2)   // elephant-foot relief at the opening
+            key_2d(joint_clearance + key_relief);
     }
 }
 
-// Volume a hook passes through while assembling: pushed in along X at the
-// start offset, then slid along Y into place (each rectangle swept separately).
-module hook_path(h) {
-    t  = h[1];
-    dy = hook_start(t);
-    dx = (t == 0 ? 1 : -1) * 40;
-    module box(r, ox, oy)
-        translate([joint_x + r[0] + ox, h[0] + r[2] + oy, 0])
-            cube([r[1] - r[0], r[3] - r[2], hook_height]);
-    for (r = hook_rects(t)) {
-        hull() { box(r, dx, dy); box(r, 0, dy); }
-        hull() { box(r, 0, dy); box(r, 0, 0); }
-    }
+// Volume a key sweeps through the right half while that half is lowered onto
+// it: in the right half's frame the key comes up from below the bed.
+module key_path(y) {
+    translate([joint_x, y, -50]) linear_extrude(50 + key_height) key_2d();
 }
 
-module grown_hooks(t, g) {
-    for (h = HOOKS) if (h[1] == t)
-        translate([joint_x, h[0], 0])
-            linear_extrude(hook_height + g) offset(delta = g) rects2d(hook_rects(t));
+module grown_keys(g) {
+    for (y = KEYS) translate([joint_x, y, 0]) linear_extrude(key_height + g) key_2d(g);
 }
 
-module seam_bottom_chamfer() {   // V-notch: chamfers the bottom edge of both butt faces
+module seam_bottom_chamfer() {   // V-notch: chamfers the bottom edge of both seam faces
     h = seam_gap / 2 + bottom_chamfer;
     translate([0, tray_depth + 1, 0]) rotate([90, 0, 0]) linear_extrude(tray_depth + 2)
         polygon([[joint_x - h, -1], [joint_x + h, -1], [joint_x + h, 0],
@@ -655,9 +838,8 @@ module left_half() {
             translate([-1, -1, -1]) cube([joint_x - seam_gap / 2 + 1, tray_depth + 2, tray_height + 2]);
         }
         seam_bottom_chamfer();
-        for (h = HOOKS) if (h[1] == 0) hook_pocket(h);
     }
-    for (h = HOOKS) if (h[1] == 1) hook(h);
+    for (y = KEYS) key(y);
 }
 
 module right_half() {
@@ -668,9 +850,8 @@ module right_half() {
                 cube([tray_length, tray_depth + 2, tray_height + 2]);
         }
         seam_bottom_chamfer();
-        for (h = HOOKS) if (h[1] == 1) hook_pocket(h);
+        for (y = KEYS) key_groove(y);
     }
-    for (h = HOOKS) if (h[1] == 0) hook(h);
 }
 
 // =====================================================================
@@ -710,9 +891,17 @@ module report() {
     echo(str("REPORT labels label_y=", label_y, " strip=", label_strip,
              " label_h=", label_h, " label_w=", label_w, " lane_pitch_min=", lane_pitch_min,
              " separator=", [for (l = [0 : n_lanes - 1]) if (len(LANES[l]) > 1) sep_len(l)]));
-    echo(str("REPORT joint hooks=", HOOKS, " slide=", hook_slide,
-             " wall_to_50c=", hook_wall_left, " wall_to_20c=", hook_wall_right,
-             " pocket_y=", [for (h = HOOKS) [hook_y_min(h), hook_y_max(h)]]));
+    echo(str("REPORT joint keys=", KEYS, " slide=0 (lowered from above)",
+             " seam_wall_left=", seam_wall_left, " seam_wall_right=", seam_wall_right,
+             " groove_y=", [key_ymin, key_ymax],
+             " bevel_gap_min=", min([for (l = [0 : n_lanes - 1]) bevel_gap(sections(l)[0])])));
+    echo(str("REPORT cavity hollow=", hollow, " front_open=", front_open, " lane_support=", lane_support,
+             " front_beam=", front_beam, " beam_bottom_z=", beam_z, " beam_depth=", deck_w(well_y0) - beam_z,
+             " front_beam_back_y=", beam_y1, " beams=", n_beams, " pitch=", beam_p,
+             " gap=", beam_p - beam_width, " beam_y=", BEAM_YS,
+             " clear_under_cradles=", clear_under_cradles,
+             " clear_between_lanes=", deck_w(well_y0) - skin_thickness / cos(deck_angle),
+             " left_solid=", cavity_dropped));
     for (l = [0 : n_lanes - 1]) for (s = sections(l)) {
         c = s[0];
         n = n_groups(c, s[2]);
@@ -741,25 +930,16 @@ if (part == "assembled")            { left_half(); right_half(); }
 else if (part == "left")            left_half();
 else if (part == "right")           right_half();
 else if (part == "left_print")      left_half();
-else if (part == "right_print")     translate([-(joint_x - hook_reach), 0, 0]) right_half();
-else if (part == "exploded")        { left_half(); translate([explode, hook_slide, 0]) right_half(); }
-else if (part == "assembly_start")  { left_half(); translate([0, hook_slide, 0]) right_half(); }
+else if (part == "right_print")     translate([-(joint_x + seam_gap / 2), 0, 0]) right_half();
+else if (part == "exploded")        { left_half(); translate([explode, 0, 0]) right_half(); }
+else if (part == "assembly_start")  { left_half(); translate([0, 0, key_height + 5]) right_half(); }
 else if (part == "coins")           coins();
 else if (part == "coins_partial")   coins(partial = true);
 else if (part == "assembled_coins") { left_half(); right_half(); coins(); }
 else if (part == "fit_check")       intersection() { tray_full(); coins(); }
 else if (part == "overlap_check")   intersection() { left_half(); right_half(); }
-// Hooks grown by 0.29 mm must not touch the other half; grown by 0.31 mm they must.
-else if (part == "clearance_check_in") {
-    intersection() { left_half();  grown_hooks(0, joint_clearance - 0.01); }
-    intersection() { right_half(); grown_hooks(1, joint_clearance - 0.01); }
-}
-else if (part == "clearance_check_out") {
-    intersection() { left_half();  grown_hooks(0, joint_clearance + 0.01); }
-    intersection() { right_half(); grown_hooks(1, joint_clearance + 0.01); }
-}
-// The whole push-then-slide assembly path must be free.
-else if (part == "path_check") {
-    intersection() { left_half();  for (h = HOOKS) if (h[1] == 0) hook_path(h); }
-    intersection() { right_half(); for (h = HOOKS) if (h[1] == 1) hook_path(h); }
-}
+// Keys grown by 0.29 mm must not touch the right half; grown by 0.31 mm they must.
+else if (part == "clearance_check_in")  intersection() { right_half(); grown_keys(joint_clearance - 0.01); }
+else if (part == "clearance_check_out") intersection() { right_half(); grown_keys(joint_clearance + 0.01); }
+// Lowering the right half onto the keys from above must be free.
+else if (part == "path_check")          intersection() { right_half(); for (y = KEYS) key_path(y); }
