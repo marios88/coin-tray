@@ -88,10 +88,13 @@ part = "assembled";
 /* [Finished overall dimensions] */
 tray_length   = 310;   // lip to lip, X
 tray_depth    = 100;   // front face to back face, Y (= the depth of the slot: no lip at the front and back)
-tray_height   = 45;    // Z
+tray_height   = 50;    // Z
 lip_width     = 2.5;   // top flange overhang on the side walls (inside the 310 x 100 envelope)
 lip_thickness = 2.0;   // flange thickness; its underside is flat (straight drop)
 lip_underside_chamfer = 0;  // optional 45 deg root chamfer under the lip (0 = sharp ledge)
+side_lip      = true;  // false = no side lip: the side walls run straight up to the top, flush with tray_length
+side_walls    = false;  // false = no side walls at all: the deck runs out to the left and right ends
+                       // (the hollow underside keeps a wall_thickness end skin below the deck)
 
 /* [Structure] */
 wall_thickness      = 2.4;  // side walls below the lip, front / back skins of the hollow body;
@@ -233,8 +236,13 @@ function sumv(v, n) = n <= 0 ? 0 : v[n - 1] + sumv(v, n - 1);
 
 // Open well: between the side walls in X; no front and back walls, so in Y it
 // spans the whole depth (the deck runs out to the front and back faces)
-well_x0 = lip_width + wall_thickness;
+lip_w   = side_lip && side_walls ? lip_width : 0;   // effective lip overhang
+well_x0 = lip_w + wall_thickness;     // inner face of the side walls (or of the end skins)
 well_x1 = tray_length - well_x0;
+// Cutters above the deck: between the side walls, or out through both ends
+cut_x0  = side_walls ? well_x0 : -1;
+cut_x1  = side_walls ? well_x1 : tray_length + 1;
+fillet_r = side_walls ? well_fillet : 0;   // no coves without side walls
 well_y0 = 0;
 well_y1 = tray_depth;
 lane_avail = well_y1 - well_y0;
@@ -455,8 +463,8 @@ assert(gap_right >= divider_thickness + 2 * pocket_chamfer, "right lanes too cro
 assert(label_h + 1 <= label_strip,
        "label_size too big for the deck strip behind the lanes (or back_clearance too small)");
 assert(label_w + 2 <= lane_pitch_min, "label_size too big: neighbouring lane labels would touch");
-assert(lane_x(0) - label_w / 2 >= well_x0 + well_fillet
-       && lane_x(n_lanes - 1) + label_w / 2 <= well_x1 - well_fillet,
+assert(lane_x(0) - label_w / 2 >= well_x0 + fillet_r
+       && lane_x(n_lanes - 1) + label_w / 2 <= well_x1 - fillet_r,
        "outer lane labels would run into the side coves");
 assert(min([for (l = [0 : n_lanes - 1]) if (len(LANES[l]) > 1) sep_len(l)])
        >= label_h + 1 + 2 * pocket_end_chamfer,
@@ -480,14 +488,14 @@ module outer_outline(inset) {
 // Body below the lip: lip_width in from the ends (side walls), flush with the
 // envelope at the front and back (no lip there)
 module body_outline(inset) {
-    rrect(lip_width + inset, inset, tray_length - lip_width - inset, tray_depth - inset,
-          corner_radius - lip_width - inset);
+    rrect(lip_w + inset, inset, tray_length - lip_w - inset, tray_depth - inset,
+          corner_radius - lip_w - inset);
 }
 
 // The open well in plan: between the side walls (grown by g), and 1 mm past
 // the front and back faces so no cutter face sits on them
 module well_plan(g = 0) {
-    translate([well_x0 - g, well_y0 - 1]) square([well_x1 - well_x0 + 2 * g, well_y1 - well_y0 + 2]);
+    translate([cut_x0 - g, well_y0 - 1]) square([cut_x1 - cut_x0 + 2 * g, well_y1 - well_y0 + 2]);
 }
 
 module slab(z, h = 0.01) { translate([0, 0, z]) linear_extrude(h) children(); }
@@ -497,25 +505,25 @@ module slab(z, h = 0.01) { translate([0, 0, z]) linear_extrude(h) children(); }
 // =====================================================================
 module shell() {
     z_lip = tray_height - lip_thickness;   // flat underside of the lip
-    hull() {   // body: side walls straight down lip_width inside the outer edge,
+    hull() {   // body: side walls straight down lip_w inside the outer edge,
                // front bottom edge bevelled (one slab per point of front_pts())
-        rc = corner_radius - lip_width;
-        slab(0)              rrect(lip_width + bottom_chamfer, fbv, tray_length - lip_width - bottom_chamfer,
+        rc = corner_radius - lip_w;
+        slab(0)              rrect(lip_w + bottom_chamfer, fbv, tray_length - lip_w - bottom_chamfer,
                                    tray_depth - bottom_chamfer, rc - bottom_chamfer);
-        slab(bottom_chamfer) rrect(lip_width, fbv - bottom_chamfer, tray_length - lip_width, tray_depth, rc);
+        slab(bottom_chamfer) rrect(lip_w, fbv - bottom_chamfer, tray_length - lip_w, tray_depth, rc);
         for (p = front_pts()) if (p[1] > bottom_chamfer)
-            slab(min(p[1], tray_height - 0.01)) rrect(lip_width, p[0], tray_length - lip_width, tray_depth, rc);
+            slab(min(p[1], tray_height - 0.01)) rrect(lip_w, p[0], tray_length - lip_w, tray_depth, rc);
     }
     hull() {   // lip flange (the well cutter leaves it on the side walls only)
         slab(z_lip)                          outer_outline(0);
         slab(tray_height - lip_edge_chamfer) outer_outline(0);
         slab(tray_height - 0.01)             outer_outline(lip_edge_chamfer);
     }
-    if (lip_underside_chamfer > 0) hull() {
+    if (side_lip && lip_underside_chamfer > 0) hull() {
         slab(z_lip - lip_underside_chamfer) body_outline(0);
-        slab(z_lip) rrect(lip_width - lip_underside_chamfer, 0,
-                          tray_length - lip_width + lip_underside_chamfer, tray_depth,
-                          corner_radius - lip_width + lip_underside_chamfer);
+        slab(z_lip) rrect(lip_w - lip_underside_chamfer, 0,
+                          tray_length - lip_w + lip_underside_chamfer, tray_depth,
+                          corner_radius - lip_w + lip_underside_chamfer);
     }
 }
 
@@ -545,9 +553,9 @@ module cove_slices(s, z0, ya, yb) {
     steps = 8;
     for (i = [0 : steps]) {
         a = 90 * i / steps;
-        e = well_fillet * (1 - sin(a));
-        sheared(s, z0 + well_fillet * (1 - cos(a)), 0.01)
-            translate([well_x0 + e, ya]) square([well_x1 - well_x0 - 2 * e, yb - ya]);
+        e = fillet_r * (1 - sin(a));
+        sheared(s, z0 + fillet_r * (1 - cos(a)), 0.01)
+            translate([cut_x0 + e, ya]) square([cut_x1 - cut_x0 - 2 * e, yb - ya]);
     }
 }
 
@@ -571,21 +579,21 @@ module well_cutter() {
 module deck_edge_bevels() {
     c = deck_edge_chamfer;
     t = tan(deck_angle);
-    top = well_fillet + c + 1;   // high enough to clear the cove tops at the faces
+    top = fillet_r + c + 1;   // high enough to clear the cove tops at the faces
     if (c > 0) {
         // front: z = deck_w(well_y0) - c + (y - well_y0)
         z0f = deck_w(well_y0) - c - well_y0;
         yef = well_y0 + c / (1 - t);
         hull() {
             cove_slices(1, z0f, well_y0 - 1, yef);
-            sheared(1, z0f + top, 0.01) translate([well_x0, well_y0 - 1]) square([well_x1 - well_x0, yef - well_y0 + 1]);
+            sheared(1, z0f + top, 0.01) translate([cut_x0, well_y0 - 1]) square([cut_x1 - cut_x0, yef - well_y0 + 1]);
         }
         // back: z = deck_w(well_y1) - c + (well_y1 - y)
         z0b = deck_w(well_y1) - c + well_y1;
         yeb = well_y1 - c / (1 + t);
         hull() {
             cove_slices(-1, z0b, yeb, well_y1 + 1);
-            sheared(-1, z0b + top, 0.01) translate([well_x0, yeb]) square([well_x1 - well_x0, well_y1 + 1 - yeb]);
+            sheared(-1, z0b + top, 0.01) translate([cut_x0, yeb]) square([cut_x1 - cut_x0, well_y1 + 1 - yeb]);
         }
     }
 }
